@@ -1,0 +1,105 @@
+from flask import Flask, request, render_template_string, send_from_directory
+import requests
+import os
+import re
+from urllib.parse import urlparse
+
+app = Flask(__name__)
+
+# Directory for storing images
+IMAGE_DIR = 'static/images'
+if not os.path.exists(IMAGE_DIR):
+    os.makedirs(IMAGE_DIR)
+
+# HTML template for the search interface
+html_template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Custom Search Engine</title>
+</head>
+<body>
+    <h1>Search</h1>
+    <form action="/" method="post">
+        <input type="text" name="query" placeholder="Enter your query" required>
+        <input type="submit" value="Search">
+    </form>
+    {% if results %}
+        <h2>Results:</h2>
+        <ul>
+            {% for result in results %}
+                <li>{{ result | safe }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</body>
+</html>
+"""
+
+# Replace with your actual Pixabay API key
+PIXABAY_API_KEY = '45387242-b6530cc142f2f6afbbd1d0ed4'
+PIXABAY_API_ENDPOINT = 'https://pixabay.com/api/'
+
+# Function to sanitize filenames
+def sanitize_filename(filename):
+    return re.sub(r'[<>:"/\\|?*]', '', filename)
+
+# Function to download and save images
+def download_image(url):
+    try:
+        # Sanitize the URL to create a valid filename
+        url_parts = urlparse(url)
+        filename = os.path.basename(url_parts.path)
+        filename = sanitize_filename(filename)
+        
+        response = requests.get(url)
+        if response.status_code == 200:
+            full_path = os.path.join(IMAGE_DIR, filename)
+            with open(full_path, 'wb') as file:
+                file.write(response.content)
+            return full_path
+    except Exception as e:
+        print(f"Error downloading image: {e}")
+    return None
+
+# Function to perform a web search and return images
+def search(query):
+    search_results = []
+    
+    params = {
+        "key": PIXABAY_API_KEY,
+        "q": query,
+        "image_type": "photo",
+        "per_page": 5
+    }
+    
+    response = requests.get(PIXABAY_API_ENDPOINT, params=params)
+    response.raise_for_status()
+    search_data = response.json()
+    
+    images = search_data.get('hits', [])
+    for img in images:
+        img_url = img.get('webformatURL')
+        if img_url:
+            image_path = download_image(img_url)
+            if image_path:
+                image_url = f"/static/images/{os.path.basename(image_path)}"
+                search_results.append(f"<img src='{image_url}' alt='Image' style='max-width:300px;'>")
+
+    return search_results
+
+@app.route("/", methods=["GET", "POST"])
+def search_page():
+    results = []
+    if request.method == "POST":
+        query = request.form["query"]
+        results = search(query)
+    
+    return render_template_string(html_template, results=results)
+
+@app.route('/static/images/<filename>')
+def serve_image(filename):
+    return send_from_directory(IMAGE_DIR, filename)
+
+if __name__ == "__main__":
+    app.run(debug=True)
