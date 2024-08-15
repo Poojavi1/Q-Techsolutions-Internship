@@ -1,0 +1,143 @@
+#main code
+from flask import Flask, render_template, request, redirect, url_for, jsonify
+import hashlib
+import time
+
+app = Flask(__name__)
+
+# Blockchain Data Structure
+blockchain = []
+
+# Genesis Block Creation
+def create_genesis_block():
+    return {
+        'index': 0,
+        'timestamp': time.time(),
+        'previous_hash': '0',
+        'votes': [],
+        'hash': calculate_hash({
+            'index': 0,
+            'timestamp': time.time(),
+            'previous_hash': '0',
+            'votes': []
+        })
+    }
+
+# Calculate Hash
+def calculate_hash(block):
+    block_string = f"{block['index']}{block['timestamp']}{block['previous_hash']}{block['votes']}"
+    return hashlib.sha256(block_string.encode()).hexdigest()
+
+# Add Block
+def add_block(votes):
+    last_block = blockchain[-1]
+    new_block = {
+        'index': len(blockchain),
+        'timestamp': time.time(),
+        'previous_hash': last_block['hash'],
+        'votes': votes,
+        'hash': ''
+    }
+    new_block['hash'] = calculate_hash(new_block)
+    blockchain.append(new_block)
+
+# Initialize Blockchain with Genesis Block
+blockchain.append(create_genesis_block())
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/vote', methods=['GET', 'POST'])
+def vote():
+    if request.method == 'POST':
+        voter_id = request.form['voter_id']
+        candidate = request.form['candidate']
+
+        # Append vote to the latest block
+        add_block([{'voter_id': voter_id, 'candidate': candidate}])
+        
+        return redirect(url_for('results'))
+    return render_template('vote.html')
+
+@app.route('/results')
+def results():
+    vote_count = {}
+    for block in blockchain:
+        if isinstance(block, dict) and 'votes' in block:
+            for vote in block['votes']:
+                candidate = vote.get('candidate')  # Safely access candidate
+                if candidate:
+                    if candidate in vote_count:
+                        vote_count[candidate] += 1
+                    else:
+                        vote_count[candidate] = 1
+
+    return render_template('results.html', results=vote_count)
+
+@app.route('/chain', methods=['GET'])
+def get_chain():
+    return jsonify(blockchain)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+#index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Voting System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Welcome to Secure Voting System</h1>
+    <a href="{{ url_for('vote') }}">Cast Your Vote</a>
+    <a href="{{ url_for('results') }}">View Results</a>
+</body>
+</html>
+
+#results.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Election Results</h1>
+    <ul>
+        {% for candidate, votes in results.items() %}
+            <li>{{ candidate }}: {{ votes }} votes</li>
+        {% endfor %}
+    </ul>
+    <a href="{{ url_for('index') }}">Back to Home</a>
+</body>
+</html>
+
+#vote.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vote</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Cast Your Vote</h1>
+    <form action="{{ url_for('vote') }}" method="POST">
+        <label for="voter_id">Voter ID:</label>
+        <input type="text" name="voter_id" required>
+        <br>
+        <label for="candidate">Candidate:</label>
+        <input type="text" name="candidate" required>
+        <br>
+        <input type="submit" value="Vote">
+    </form>
+</body>
+</html>
+
