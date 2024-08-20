@@ -1,0 +1,48 @@
+class ChessBoard {
+    constructor(boardElement) {
+        this.boardElement = boardElement;
+        this.selectedSquare = null;
+        this.initializeBoard();
+    }
+
+    initializeBoard() {
+        // Generate the board
+        let isBlack = false;
+        for (let row = 8; row >= 1; row--) {
+            for (let col = 1; col <= 8; col++) {
+                const square = document.createElement('div');
+                square.className = 'square ' + (isBlack ? 'black' : 'white');
+                square.dataset.position = this.getPosition(col, row);
+                square.addEventListener('click', this.onSquareClick.bind(this));
+                this.boardElement.appendChild(square);
+                isBlack = !isBlack;
+            }
+            isBlack = !isBlack;
+        }
+    }
+
+    getPosition(col, row) {
+        const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+        return letters[col - 1] + row;
+    }
+
+    onSquareClick(event) {
+        const square = event.currentTarget;
+        if (this.selectedSquare) {
+            const from = this.selectedSquare.dataset.position;
+            const to = square.dataset.position;
+            this.onMove(from, to);
+            this.selectedSquare.classList.remove('selected');
+            this.selectedSquare = null;
+        } else {
+            this.selectedSquare = square;
+            square.classList.add('selected');
+        }
+    }
+
+    updateBoard(svgData) {
+        // Replace the entire board with the new SVG data
+        this.boardElement.innerHTML = svgData;
+        this.initializeBoard();
+    }
+}
