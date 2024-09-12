@@ -1,0 +1,33 @@
+#This is the main code
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+# Simulated devices
+devices = {
+    "light": False,  # Light is off initially
+    "thermostat": 22  # Thermostat set to 22°C
+}
+
+@app.route('/')
+def home():
+    return "<h1>Home Automation System</h1><p>Control your devices using the API.</p>"
+
+@app.route('/device/light', methods=['GET', 'POST'])
+def control_light():
+    if request.method == 'POST':
+        data = request.json
+        devices['light'] = data.get('state', False)
+        return jsonify({"light_state": devices['light']})
+    return jsonify({"light_state": devices['light']})
+
+@app.route('/device/thermostat', methods=['GET', 'POST'])
+def control_thermostat():
+    if request.method == 'POST':
+        data = request.json
+        devices['thermostat'] = data.get('temperature', 22)
+        return jsonify({"thermostat": devices['thermostat']})
+    return jsonify({"thermostat": devices['thermostat']})
+
+if __name__ == '__main__':
+    app.run(debug=True)
