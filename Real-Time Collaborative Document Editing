@@ -1,0 +1,307 @@
+#this is flask code
+from flask import Flask, render_template
+from flask_socketio import SocketIO, emit
+import redis
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your_secret_key'
+socketio = SocketIO(app)
+
+# Setup Redis
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@socketio.on('update')
+def handle_update(data):
+    # Store the document content in Redis
+    redis_client.set('document', data['content'])
+    # Emit update to all clients
+    emit('update', data, broadcast=True)
+
+@socketio.on('connect')
+def handle_connect():
+    # Send current document content to the newly connected client
+    content = redis_client.get('document')
+    if content:
+        emit('load', {'content': content})
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True)
+#this is html,css code
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Collaborative Document Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/@socket.io/client@4.6.1/dist/socket.io.min.js"></script>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f2f5;
+        }
+        .container {
+            width: 80%;
+            max-width: 1200px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: #4CAF50;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .editor-container {
+            flex: 1;
+            padding: 20px;
+            border-top: 1px solid #ddd;
+        }
+        .quill-toolbar {
+            background: #f3f3f3;
+            border-bottom: 1px solid #ddd;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .toolbar button, .toolbar select {
+            margin-right: 5px;
+        }
+        .color-options {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .color-option {
+            display: flex;
+            align-items: center;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        .color-option button {
+            width: 30px;
+            height: 30px;
+            border: none;
+            border-radius: 50%;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        .color-option .color-name {
+            font-size: 14px;
+        }
+        .color-red { background-color: red; }
+        .color-green { background-color: green; }
+        .color-blue { background-color: blue; }
+        .color-yellow { background-color: yellow; }
+        .color-pink { background-color: pink; }
+        .color-purple { background-color: purple; }
+        .color-orange { background-color: orange; }
+        .color-gray { background-color: gray; }
+        .color-cyan { background-color: cyan; }
+        .color-magenta { background-color: magenta; }
+        .color-brown { background-color: brown; }
+        .color-teal { background-color: teal; }
+        .color-maroon { background-color: maroon; }
+        .color-navy { background-color: navy; }
+        .font-options select {
+            margin-right: 5px;
+        }
+        .font-size-options select {
+            width: 80px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">Collaborative Document Editor</div>
+        <div id="toolbar">
+            <div class="toolbar">
+                <!-- Toolbar Options -->
+                <button class="ql-bold">B</button>
+                <button class="ql-italic">I</button>
+                <button class="ql-underline">U</button>
+                <button class="ql-strike">S</button>
+                <select class="ql-font">
+                    <option value="sans-serif">Sans Serif</option>
+                    <option value="serif">Serif</option>
+                    <option value="monospace">Monospace</option>
+                    <option value="cursive">Cursive</option>
+                    <option value="fantasy">Fantasy</option>
+                </select>
+                <select class="ql-size font-size-options">
+                    <option value="10px">10</option>
+                    <option value="12px">12</option>
+                    <option value="14px">14</option>
+                    <option value="16px">16</option>
+                    <option value="18px">18</option>
+                    <option value="20px">20</option>
+                    <option value="22px">22</option>
+                    <option value="24px">24</option>
+                    <option value="26px">26</option>
+                    <option value="28px">28</option>
+                    <option value="30px">30</option>
+                    <option value="32px">32</option>
+                    <option value="34px">34</option>
+                    <option value="36px">36</option>
+                    <option value="48px">48</option>
+                    <option value="72px">72</option>
+                </select>
+                <button class="ql-list" value="ordered">Ordered List</button>
+                <button class="ql-list" value="bullet">Bullet List</button>
+                <button class="ql-align" value="left">Left</button>
+                <button class="ql-align" value="center">Center</button>
+                <button class="ql-align" value="right">Right</button>
+                <button class="ql-align" value="justify">Justify</button>
+                <div class="color-options">
+                    <div class="color-option">
+                        <button class="ql-color color-red" value="red" title="Red"></button>
+                        <span class="color-name">Red</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-green" value="green" title="Green"></button>
+                        <span class="color-name">Green</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-blue" value="blue" title="Blue"></button>
+                        <span class="color-name">Blue</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-yellow" value="yellow" title="Yellow"></button>
+                        <span class="color-name">Yellow</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-pink" value="pink" title="Pink"></button>
+                        <span class="color-name">Pink</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-purple" value="purple" title="Purple"></button>
+                        <span class="color-name">Purple</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-orange" value="orange" title="Orange"></button>
+                        <span class="color-name">Orange</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-gray" value="gray" title="Gray"></button>
+                        <span class="color-name">Gray</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-cyan" value="cyan" title="Cyan"></button>
+                        <span class="color-name">Cyan</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-magenta" value="magenta" title="Magenta"></button>
+                        <span class="color-name">Magenta</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-brown" value="brown" title="Brown"></button>
+                        <span class="color-name">Brown</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-teal" value="teal" title="Teal"></button>
+                        <span class="color-name">Teal</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-maroon" value="maroon" title="Maroon"></button>
+                        <span class="color-name">Maroon</span>
+                    </div>
+                    <div class="color-option">
+                        <button class="ql-color color-navy" value="navy" title="Navy"></button>
+                        <span class="color-name">Navy</span>
+                    </div>
+                </div>
+                <button class="ql-background" value="yellow" title="Highlight Yellow">Highlight Yellow</button>
+                <button class="ql-background" value="lightblue" title="Highlight Light Blue">Highlight Light Blue</button>
+                <button class="ql-background" value="lightgreen" title="Highlight Light Green">Highlight Light Green</button>
+                <button class="ql-background" value="lightpink" title="Highlight Light Pink">Highlight Light Pink</button>
+                <button class="ql-header" value="1">H1</button>
+                <button class="ql-header" value="2">H2</button>
+                <button class="ql-header" value="3">H3</button>
+                <button class="ql-indent" value="-1">Indent</button>
+                <button class="ql-indent" value="+1">Outdent</button>
+                <button class="ql-code">Code</button>
+                <button class="ql-blockquote">Blockquote</button>
+            </div>
+        </div>
+        <div id="editor" class="editor-container"></div>
+    </div>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script>
+        var quill = new Quill('#editor', {
+            theme: 'snow',
+            modules: {
+                toolbar: '#toolbar'
+            }
+        });
+
+        var socket = io();
+
+        // Load initial document
+        socket.on('load', function(data) {
+            if (data.content) {
+                quill.setContents(data.content);
+            }
+        });
+
+        // Listen for document updates
+        socket.on('update', function(data) {
+            quill.setContents(data.content);
+        });
+
+        // Send document updates
+        quill.on('text-change', function() {
+            socket.emit('update', {
+                content: quill.getContents()
+            });
+        });
+    </script>
+</body>
+</html>
+#this is javascript
+const socket = io();
+
+// Initialize Quill editor
+const quill = new Quill('#editor-container', {
+    theme: 'snow',
+    modules: {
+        toolbar: [
+            [{ 'header': [1, 2, false] }],
+            ['bold', 'italic', 'underline'],
+            ['link'],
+            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+            [{ 'script': 'sub' }, { 'script': 'super' }],
+            [{ 'indent': '-1' }, { 'indent': '+1' }],
+            [{ 'direction': 'rtl' }],
+            [{ 'size': ['small', 'medium', 'large', 'huge'] }],
+            [{ 'color': [] }, { 'background': [] }],
+            [{ 'font': [] }],
+            [{ 'align': [] }],
+        ]
+    }
+});
+
+// Handle document updates
+quill.on('text-change', function () {
+    const content = quill.root.innerHTML;
+    socket.emit('update_document', { content: content });
+});
+
+// Receive document updates from the server
+socket.on('document_updated', function (data) {
+    quill.root.innerHTML = data.content;
+});
+#if you want you can make changes however you want in html/css code
