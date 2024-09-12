@@ -1,0 +1,85 @@
+#encryption
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+from Crypto.Random import get_random_bytes
+
+def encrypt_file(file_path, key):
+    cipher = AES.new(key, AES.MODE_CBC)
+    iv = cipher.iv
+
+    with open(file_path, 'rb') as file:
+        plaintext = file.read()
+
+    ciphertext = cipher.encrypt(pad(plaintext, AES.block_size))
+
+    encrypted_file_path = file_path + '.enc'
+    with open(encrypted_file_path, 'wb') as enc_file:
+        enc_file.write(iv + ciphertext)
+
+    return encrypted_file_path
+#Encryption and Decryption Main code
+def decrypt_file(encrypted_file_path, key):
+    with open(encrypted_file_path, 'rb') as enc_file:
+        iv = enc_file.read(16)
+        ciphertext = enc_file.read()
+
+    cipher = AES.new(key, AES.MODE_CBC, iv=iv)
+    plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+
+    original_file_path = encrypted_file_path.replace('.enc', '')
+    with open(original_file_path, 'wb') as dec_file:
+        dec_file.write(plaintext)
+
+    return original_file_path
+from flask import Flask, request, send_file, abort
+import os
+from encryption_utils import encrypt_file, decrypt_file
+
+app = Flask(__name__)
+
+# Define a secret key for AES encryption (must be 16, 24, or 32 bytes long)
+SECRET_KEY = os.urandom(16)
+
+# Ensure the uploads directory exists
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return 'No file part', 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return 'No selected file', 400
+
+    if file:
+        file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(file_path)
+
+        # Encrypt file before storing it
+        encrypted_file_path = encrypt_file(file_path, SECRET_KEY)
+
+        # Return the path to the encrypted file
+        return f'File uploaded and encrypted: {encrypted_file_path}', 200
+
+@app.route('/download/<filename>', methods=['GET'])
+def download_file(filename):
+    encrypted_file_path = os.path.join(UPLOAD_FOLDER, filename + '.enc')
+
+    if not os.path.exists(encrypted_file_path):
+        return 'File not found', 404
+
+    # Decrypt the file before sending
+    decrypted_file_path = decrypt_file(encrypted_file_path, SECRET_KEY)
+
+    return send_file(decrypted_file_path, as_attachment=True)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+#encrypted file content
+curl -F "file=@C:\Users\91901\Downloads\csstuto.txt" http://127.0.0.1:5000/upload #use your own txt file
+#decrypyed file content
+curl -O http://127.0.0.1:5000/download/csstuto.txt
+
