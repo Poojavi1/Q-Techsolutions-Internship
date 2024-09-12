@@ -31,3 +31,32 @@ def control_thermostat():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+# Check Light Status
+GET http://127.0.0.1:5000/device/light
+
+###
+
+# Turn On the Light
+POST http://127.0.0.1:5000/device/light
+Content-Type: application/json
+
+{
+  "state": true
+}
+
+###
+
+# Check Thermostat Temperature
+GET http://127.0.0.1:5000/device/thermostat
+
+###
+
+# Set Thermostat Temperature
+POST http://127.0.0.1:5000/device/thermostat
+Content-Type: application/json
+
+{
+  "temperature": 24
+}
+
