@@ -1,0 +1,85 @@
+import cv2
+import time
+import matplotlib.pyplot as plt
+
+# Load the Haar Cascade classifier for cars
+car_classifier = cv2.CascadeClassifier(r"C:\Users\91901\Downloads\haarcascade_car.xml")
+
+# Initiate video capture for the video file
+cap = cv2.VideoCapture(r"C:\Users\91901\Downloads\Output (1).mp4\Output (1).mp4")
+
+# Check if the video is opened successfully
+if not cap.isOpened():
+    print("Error: Could not open video.")
+    exit()
+
+# Initialize vehicle count and parameters for speed calculation
+vehicle_count = 0
+frame_rate = cap.get(cv2.CAP_PROP_FPS)  # Get the frame rate of the video
+frame_time = 1 / frame_rate  # Time per frame in seconds
+vehicle_speeds = []  # List to store detected vehicle speeds
+
+# Define a function to classify vehicles based on size
+def classify_vehicle(width, height):
+    aspect_ratio = width / height
+    if aspect_ratio > 1.5:  # Assuming cars are wider than taller
+        return "Car"
+    elif aspect_ratio <= 1.5 and aspect_ratio >= 1.2:  # Assuming trucks are less wide
+        return "Truck"
+    else:
+        return "Bus"
+
+# Set up matplotlib for real-time display
+plt.ion()  # Enable interactive mode
+
+# Loop through the video frames
+while cap.isOpened():
+    time.sleep(0.05)  # Add a small delay
+
+    # Read each frame from the video
+    ret, frame = cap.read()
+
+    # Check if the frame was successfully captured
+    if not ret:
+        print("End of video reached or failed to read the frame.")
+        break
+
+    # Convert the frame to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # Detect cars in the frame
+    cars = car_classifier.detectMultiScale(gray, 1.4, 2)
+
+    # Draw bounding boxes and classify vehicles
+    for (x, y, w, h) in cars:
+        vehicle_type = classify_vehicle(w, h)  # Classify vehicle based on width and height
+        vehicle_count += 1  # Increment vehicle count
+
+        # Draw bounding boxes and label the vehicles
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        cv2.putText(frame, vehicle_type, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+    # Calculate and display speed (assuming each vehicle moves 5 meters in one second for simplicity)
+    if len(cars) > 0:
+        speed = 5 / frame_time  # Speed in meters per second
+        vehicle_speeds.append(speed)  # Store vehicle speed
+
+    # Convert BGR frame to RGB for displaying with matplotlib
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    # Display the frame with detections using matplotlib
+    plt.imshow(frame_rgb)
+    plt.title(f'Real-Time Vehicle Detection\nTotal Vehicles Detected: {vehicle_count}', fontsize=16)
+    plt.axis('off')  # Turn off axis
+    plt.pause(0.001)  # Pause for real-time display
+    plt.clf()  # Clear the current figure for the next frame
+
+# Print the results
+print(f"Total Vehicles Detected: {vehicle_count}")
+if vehicle_speeds:
+    average_speed = sum(vehicle_speeds) / len(vehicle_speeds)
+    print(f"Average Speed of Detected Vehicles: {average_speed:.2f} m/s")
+
+# Release the video capture object
+cap.release()
+plt.close()  # Close the matplotlib window
