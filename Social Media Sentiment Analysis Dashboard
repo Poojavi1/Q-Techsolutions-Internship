@@ -1,0 +1,107 @@
+#Main code
+from flask import Flask, render_template, request, redirect, url_for
+from nltk.sentiment import SentimentIntensityAnalyzer
+
+app = Flask(__name__)
+
+# Initialize the sentiment analyzer
+sia = SentimentIntensityAnalyzer()
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    sentiment_summary = {'positive': 0, 'negative': 0, 'neutral': 0}
+
+    if request.method == 'POST':
+        text = request.form['text']
+        score = sia.polarity_scores(text)
+
+        # Classify sentiment based on compound score
+        if score['compound'] >= 0.05:
+            sentiment_summary['positive'] += 1
+        elif score['compound'] <= -0.05:
+            sentiment_summary['negative'] += 1
+        else:
+            sentiment_summary['neutral'] += 1
+
+        return render_template('index.html', sentiment_summary=sentiment_summary)
+
+    return render_template('index.html', sentiment_summary=sentiment_summary)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+#HTML code
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Sentiment Analysis Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Sentiment Analysis Dashboard</h1>
+        
+        <h2>Enter Social Media Post</h2>
+        <form method="POST">
+            <textarea name="text" rows="4" cols="50" placeholder="Type your text here..." required></textarea><br>
+            <button type="submit">Analyze Sentiment</button>
+        </form>
+
+        {% if sentiment_summary %}
+            <h2>Sentiment Summary</h2>
+            <ul>
+                <li>Positive: {{ sentiment_summary['positive'] }}</li>
+                <li>Negative: {{ sentiment_summary['negative'] }}</li>
+                <li>Neutral: {{ sentiment_summary['neutral'] }}</li>
+            </ul>
+            <div id="sentiment-chart"></div>
+            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+            <script>
+                const sentimentData = {
+                    labels: ['Positive', 'Negative', 'Neutral'],
+                    values: {{ sentiment_summary | tojson }},
+                };
+
+                const data = [{
+                    values: sentimentData.values,
+                    labels: sentimentData.labels,
+                    type: 'pie'
+                }];
+
+                const layout = {
+                    title: 'Sentiment Distribution',
+                    height: 400,
+                    width: 600
+                };
+
+                Plotly.newPlot('sentiment-chart', data, layout);
+            </script>
+        {% endif %}
+    </div>
+</body>
+</html>
+#Ignore the problems, they don't effect the output
+#CSS code
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    text-align: center;
+}
+#you can modify the CSS code however you want your dashboard to be
